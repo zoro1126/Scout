@@ -22,7 +22,7 @@ playwright install chromium
 echo "[4/4] Setting up models directory & downloading LLM..."
 mkdir -p models
 
-MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf"
+MODEL_URL="https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF?show_file_info=Qwen2.5-3B-Instruct-Q4_K_M.gguf"
 MODEL_PATH="models/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
 
 if [ -f "$MODEL_PATH" ]; then
@@ -34,6 +34,6 @@ fi
 
 echo "========================================"
 echo "Setup Complete!"
-echo "To get started, activate the virtual environment with:"
+echo "To get started, activate the virtual environment(if not already activated) with:"
 echo "    source .venv/bin/activate"
 echo "========================================"
