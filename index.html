@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scout</title>
+    <!-- Marked.js for Markdown Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <!-- Highlight.js for Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #000000;
+            --sidebar-bg: #09090b;
+            --text-color: #fafafa;
+            --input-bg: #18181b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --bot-msg-bg: #09090b;
+            --user-msg-bg: #000000;
+            --border-color: #27272a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        /* --- SETUP VIEW --- */
+        #setup-view {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #09090b, #000000);
+        }
+
+        .setup-card {
+            background: var(--sidebar-bg);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+        }
+
+        .setup-card h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+            letter-spacing: -1px;
+            color: #fff;
+        }
+
+        .setup-card p {
+            color: #8e8ea0;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .input-group input {
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: white;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent);
+        }
+
+        .btn {
+            padding: 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease, opacity 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn:disabled {
+            background: #565869;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .status-container {
+            margin-top: 16px;
+            min-height: 24px;
+        }
+
+        .msg-error {
+            color: #ef4444;
+            font-size: 14px;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #ef4444;
+            text-align: left;
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        .msg-success {
+            color: #10a37f;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        #goto-chat-btn {
+            display: none;
+            margin-top: 24px;
+            background: #3b82f6;
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        #goto-chat-btn:hover {
+            background: #2563eb;
+        }
+
+        /* Spinner for setup */
+        .spinner {
+            display: none;
+            margin: 16px auto;
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* --- CHAT VIEW --- */
+
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            padding-bottom: 120px;
+        }
+
+        .message {
+            padding: 24px 0;
+            display: flex;
+            justify-content: center;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .message.bot {
+            background-color: var(--bot-msg-bg);
+        }
+
+        .message-content {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            gap: 24px;
+            padding: 0 24px;
+            animation: fadeIn 0.5s ease forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .user .avatar { background: #27272a; }
+        .bot .avatar { background: var(--accent); }
+
+        .text-content {
+            flex: 1;
+            line-height: 1.6;
+            font-size: 15px;
+            overflow-wrap: break-word;
+        }
+
+        /* Markdown Render Styles */
+        .text-content p { margin-bottom: 12px; }
+        .text-content p:last-child { margin-bottom: 0; }
+        .text-content ul, .text-content ol { margin-left: 20px; margin-bottom: 12px; }
+        .text-content h1, .text-content h2, .text-content h3 { margin-top: 16px; margin-bottom: 8px; color: #fff; }
+        .text-content pre {
+            background: #282c34;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-top: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #1e1e1e;
+        }
+        .text-content code {
+            font-family: monospace;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .text-content pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+        .text-content blockquote {
+            border-left: 3px solid var(--accent);
+            padding-left: 12px;
+            color: #8e8ea0;
+            margin-bottom: 12px;
+        }
+
+        .sources {
+            margin-top: 12px;
+            font-size: 12px;
+            background: rgba(0,0,0,0.2);
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .sources ul { margin-left: 20px; margin-top: 6px; }
+        .sources a { color: #4ade80; text-decoration: none; }
+        .sources a:hover { text-decoration: underline; }
+
+        .gen-time {
+            font-size: 12px;
+            color: #8e8ea0;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            width: fit-content;
+        }
+
+        .input-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px;
+            display: flex;
+            justify-content: center;
+            background-image: linear-gradient(180deg, rgba(0,0,0,0), #000000 58.85%);
+            z-index: 5;
+        }
+
+        .input-container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--input-bg);
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: flex-end;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 15px;
+            resize: none;
+            max-height: 200px;
+            height: 24px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            padding: 2px 0;
+        }
+
+        .send-btn {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .send-btn:hover { background: rgba(0,0,0,0.1); }
+        .send-btn:disabled { color: #565869; cursor: not-allowed; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding-top: 8px;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: #8e8ea0;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        #empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #ececf1;
+        }
+
+        #empty-state h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            letter-spacing: -1px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- SETUP VIEW -->
+    <div id="setup-view" class="view active">
+        <div class="setup-card">
+            <h1>Scout: Scout Crawls Online URLs for Transformers</h1>
+            <p>Initialize the Retrieval-Augmented Generation (RAG) Engine</p>
+
+            <div class="input-group" id="crawl-div">
+                <input type="text" id="crawl-url" placeholder="Enter URL (e.g. https://example.com)" />
+                <button class="btn" id="crawl-btn" onclick="startCrawl()">Crawl & Index</button>
+            </div>
+
+            <div class="spinner" id="setup-spinner"></div>
+            
+            <div class="status-container" id="status-container"></div>
+
+            <button class="btn" id="goto-chat-btn" onclick="openChatView()">Go to Chat</button>
+        </div>
+    </div>
+
+    <!-- CHAT VIEW -->
+    <div id="chat-view" class="view">
+
+        <div class="main-chat">
+            <div class="chat-container" id="chat-container">
+                <div id="empty-state">
+                    <h1>Scout</h1>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <textarea id="message-input" placeholder="Message Scout..." rows="1" oninput="autoExpand(this)" onkeydown="handleEnter(event)"></textarea>
+                    <button class="send-btn" id="send-btn" onclick="sendMessage()">
+                        <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16" xmlns="http://www.w3.org/2000/svg"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const setupView = document.getElementById('setup-view');
+        const chatView = document.getElementById('chat-view');
+        
+        const urlInput = document.getElementById('crawl-url');
+        const crawlBtn = document.getElementById('crawl-btn');
+        const setupSpinner = document.getElementById('setup-spinner');
+        const statusContainer = document.getElementById('status-container');
+        const gotoChatBtn = document.getElementById('goto-chat-btn');
+        const crawlDiv = document.getElementById('crawl-div');
+
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const emptyState = document.getElementById('empty-state');
+        const sendBtn = document.getElementById('send-btn');
+        let isWaitingForResponse = false;
+
+        // On Load: Check if RAG is ready
+        window.onload = async () => {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                if (data.ready) {
+                    showReadyState("RAG is already initialized from a previous crawl.");
+                }
+            } catch (err) {
+                console.log("Status check failed", err);
+            }
+        };
+
+        function openChatView() {
+            setupView.classList.remove('active');
+            chatView.classList.add('active');
+        }
+
+        function openSetupView() {
+            chatView.classList.remove('active');
+            setupView.classList.add('active');
+        }
+
+        function showReadyState(message) {
+            statusContainer.innerHTML = `<div class="msg-success">${message}</div>`;
+            gotoChatBtn.style.display = 'inline-block';
+        }
+
+        function showErrorState(errorMsg) {
+            statusContainer.innerHTML = `<div class="msg-error"><strong>Error:</strong><br>${errorMsg}</div>`;
+        }
+
+        async function startCrawl() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showErrorState("Please enter a valid URL.");
+                return;
+            }
+
+            crawlBtn.disabled = true;
+            urlInput.disabled = true;
+            setupSpinner.style.display = 'block';
+            statusContainer.innerHTML = `<div style="color:#8e8ea0;font-size:14px;margin-top:10px;">Crawling ${url}...<br>This may take a while depending on the size of the website.</div>`;
+            gotoChatBtn.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/crawl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showReadyState("RAG is ready! Successfully scraped and indexed.");
+                } else {
+                    showErrorState(data.error || "Failed to crawl the URL. Please check the backend console.");
+                }
+            } catch (err) {
+                showErrorState("Server is unreachable. Make sure the Scout python server is running.");
+            } finally {
+                crawlBtn.disabled = false;
+                urlInput.disabled = false;
+                setupSpinner.style.display = 'none';
+            }
+        }
+
+        function autoExpand(textarea) {
+            textarea.style.height = '24px';
+            textarea.style.height = (Math.min(textarea.scrollHeight, 200)) + 'px';
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function clearChat() {
+            chatContainer.innerHTML = '';
+            chatContainer.appendChild(emptyState);
+            emptyState.style.display = 'flex';
+        }
+
+        // Configure marked to use highlight.js
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                highlight: function(code, language) {
+                    if (language && hljs.getLanguage(language)) {
+                        try {
+                            return hljs.highlight(code, { language: language }).value;
+                        } catch (__) {}
+                    }
+                    return hljs.highlightAuto(code).value;
+                },
+                breaks: true
+            });
+        }
+
+        function formatText(text) {
+            if (text == null) text = "";
+            text = String(text);
+
+            // Treat any literal '\n' sequences from API JSON as actual newlines
+            text = text.replace(/\\n/g, '\n');
+
+            if (typeof marked !== 'undefined') {
+                const html = marked.parse(text);
+                return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html) : html;
+            }
+            // Fallback just in case marked isn't available
+            let formatted = text.replace(/\n/g, '<br>');
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            return formatted;
+        }
+
+        function updateMessageUI(msgDiv, text, sender, sources = null, timeStr = null) {
+            let contentDiv = msgDiv.querySelector('.text-content');
+            
+            if (!contentDiv) {
+                let avatarContent = sender === 'user' ? 
+                    '<svg stroke="white" fill="none" stroke-width="2" viewBox="0 0 24 24" height="20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' : 
+                    '<svg stroke="white" fill="none" stroke-width="2" viewBox="0 0 24 24" height="20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>';
+
+                msgDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="avatar">${avatarContent}</div>
+                        <div class="text-content"></div>
+                    </div>
+                `;
+                contentDiv = msgDiv.querySelector('.text-content');
+            }
+
+            let sourceHtml = '';
+            if (sources && sources.length > 0) {
+                let uniqueSources = [];
+                let map = new Map();
+                for (let s of sources) {
+                    if (s.source && !map.has(s.source)) {
+                        map.set(s.source, true);
+                        uniqueSources.push(s);
+                    }
+                }
+                if (uniqueSources.length > 0) {
+                    sourceHtml = `
+                    <div class="sources">
+                        <strong>Relevant Sources:</strong>
+                        <ul>
+                            ${uniqueSources.map(s => `<li><a href="${s.source}" target="_blank">${s.source}</a> (score: ${parseFloat(s.score).toFixed(2)})</li>`).join('')}
+                        </ul>
+                    </div>`;
+                }
+            }
+
+            let timeHtml = '';
+            if (timeStr) {
+                timeHtml = `
+                <div class="gen-time">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="12" width="12" xmlns="http://www.w3.org/2000/svg" style="opacity: 0.7;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    ${timeStr}
+                </div>`;
+            }
+
+            const parsedText = sender === 'bot' ? formatText(text) : text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br>");
+            contentDiv.innerHTML = parsedText + sourceHtml + timeHtml;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function addMessage(text, sender, sources = null, timeStr = null) {
+            if (text == null) text = "";
+            text = String(text);
+            emptyState.style.display = 'none';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            chatContainer.appendChild(msgDiv);
+            updateMessageUI(msgDiv, text, sender, sources, timeStr);
+            return msgDiv;
+        }
+
+        function addTypingIndicator() {
+            emptyState.style.display = 'none';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message bot typing`;
+            msgDiv.id = 'typing-indicator';
+            
+            msgDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="avatar">
+                        <svg stroke="white" fill="none" stroke-width="2" viewBox="0 0 24 24" height="20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    </div>
+                    <div class="text-content typing-indicator">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                </div>
+            `;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || isWaitingForResponse) return;
+
+            messageInput.value = '';
+            autoExpand(messageInput);
+            addMessage(text, 'user');
+
+            isWaitingForResponse = true;
+            sendBtn.disabled = true;
+            addTypingIndicator();
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: text })
+                });
+
+                removeTypingIndicator();
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    addMessage('Error: ' + (data.error || 'Server error'), 'bot');
+                    isWaitingForResponse = false;
+                    sendBtn.disabled = false;
+                    return;
+                }
+
+                // Streaming Response Setup
+                emptyState.style.display = 'none';
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message bot';
+                chatContainer.appendChild(msgDiv);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                
+                let answerText = "";
+                let sources = null;
+                let tokens = 0;
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    let boundary = buffer.indexOf('\n\n');
+                    while (boundary !== -1) {
+                        let chunk = buffer.slice(0, boundary);
+                        buffer = buffer.slice(boundary + 2);
+                        
+                        if (chunk.startsWith('data: ')) {
+                            chunk = chunk.substring(6);
+                            try {
+                                const data = JSON.parse(chunk);
+                                if (data.type === 'metadata') {
+                                    sources = data.sources;
+                                    updateMessageUI(msgDiv, answerText, 'bot', sources, null);
+                                } else if (data.type === 'token') {
+                                    answerText += data.content;
+                                    tokens++;
+                                    updateMessageUI(msgDiv, answerText, 'bot', sources, null);
+                                } else if (data.type === 'done') {
+                                    tokens = data.token_count || tokens;
+                                } else if (data.type === 'error') {
+                                    answerText += "\n\n**Error:** " + data.error;
+                                    updateMessageUI(msgDiv, answerText, 'bot', sources, null);
+                                }
+                            } catch(e) { }
+                        }
+                        boundary = buffer.indexOf('\n\n');
+                    }
+                }
+
+                const endTime = performance.now();
+                const timeTaken = ((endTime - startTime) / 1000).toFixed(2);
+                let speed = tokens > 0 ? (tokens / timeTaken).toFixed(1) : 0;
+                let timeStr = `Generated in ${timeTaken}s (${speed} tokens/s)`;
+                
+                updateMessageUI(msgDiv, answerText, 'bot', sources, timeStr);
+
+            } catch (err) {
+                removeTypingIndicator();
+                addMessage('Error: Cannot connect to server.', 'bot');
+            } finally {
+                isWaitingForResponse = false;
+                sendBtn.disabled = false;
+                setTimeout(() => { messageInput.focus(); }, 10);
+            }
+        }
+    </script>
+</body>
+</html>

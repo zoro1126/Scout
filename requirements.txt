@@ -1,0 +1,11 @@
+aiohttp
+beautifulsoup4
+lxml
+playwright
+tiktoken
+sentence-transformers
+faiss-cpu
+llama-cpp-python
+tqdm
+python-dotenv
+huggingface-hub
