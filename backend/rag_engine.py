@@ -10,6 +10,8 @@ Usage:
 Dependencies:
     pip install sentence-transformers faiss-cpu llama-cpp-python tqdm python-dotenv
     (optional) pip install tiktoken
+    For GPU (CUDA) support in llama-cpp-python:
+        CMAKE_ARGS="-DGGML_CUDA=ON" pip install llama-cpp-python --upgrade --force-reinstall
 """
 from __future__ import annotations
 
@@ -57,6 +59,29 @@ EMBED_DIM = 384  # all-MiniLM-L6-v2: 384; adjust if you change model
 TOP_K = int(os.environ.get("RAG_TOP_K", "6"))
 LLAMA_N_CTX = int(os.environ.get("LLAMA_N_CTX", "4096"))
 LLAMA_N_THREADS = int(os.environ.get("LLAMA_N_THREADS", "8"))
+
+# GPU / CUDA auto-detection
+# -1 means "offload ALL layers to GPU"; 0 means CPU-only.
+# Override via env var LLAMA_N_GPU_LAYERS (e.g. export LLAMA_N_GPU_LAYERS=20 for partial offload).
+def _detect_cuda() -> bool:
+    """Return True if a CUDA-capable GPU is available via torch (preferred) or nvidia-smi."""
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        pass
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["nvidia-smi", "-L"], capture_output=True, text=True, timeout=5
+        )
+        return result.returncode == 0 and "GPU" in result.stdout
+    except Exception:
+        return False
+
+CUDA_AVAILABLE: bool = _detect_cuda()
+_default_gpu_layers = "-1" if CUDA_AVAILABLE else "0"
+LLAMA_N_GPU_LAYERS = int(os.environ.get("LLAMA_N_GPU_LAYERS", _default_gpu_layers))
 # ----------------------------------------------------------
 
 logger = logging.getLogger("rag")
@@ -161,17 +186,29 @@ class Document:
 
 # ------------------------- Embedder -------------------------
 class Embedder:
-    """Wrapper around a SentenceTransformer embedder."""
+    """Wrapper around a SentenceTransformer embedder.
 
-    def __init__(self, model_name: str = EMBED_MODEL_NAME):
-        logger.info("Loading embedding model: %s", model_name)
-        self.model = SentenceTransformer(model_name)
+    Automatically uses CUDA (GPU) for encoding when available, falling back
+    to CPU transparently.
+    """
+
+    def __init__(self, model_name: str = EMBED_MODEL_NAME, device: Optional[str] = None):
+        if device is None:
+            device = "cuda" if CUDA_AVAILABLE else "cpu"
+        logger.info("Loading embedding model: %s  (device=%s)", model_name, device)
+        self.device = device
+        self.model = SentenceTransformer(model_name, device=device)
         # update dim if model differs
         self.dim = self.model.get_sentence_embedding_dimension()
 
     def embed_texts(self, texts: Iterable[str]) -> np.ndarray:
         """Return normalized embeddings (ndarray, float32)."""
-        embs = self.model.encode(list(texts), show_progress_bar=False, convert_to_numpy=True)
+        embs = self.model.encode(
+            list(texts),
+            show_progress_bar=False,
+            convert_to_numpy=True,
+            device=self.device,
+        )
         # normalize to unit vectors for cosine via inner product
         norms = np.linalg.norm(embs, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
@@ -221,13 +258,42 @@ class FaissVectorStore:
 
 # ------------------------- LLM wrapper -------------------------
 class LocalLLM:
-    """Small wrapper for llama-cpp-python Llama."""
+    """Small wrapper for llama-cpp-python Llama.
 
-    def __init__(self, model_path: str = MODEL_PATH, n_ctx: int = LLAMA_N_CTX, n_threads: int = LLAMA_N_THREADS):
+    GPU offloading is controlled by ``n_gpu_layers``:
+      * -1  → offload ALL layers to VRAM (maximum GPU utilisation)
+      *  0  → CPU-only (safe fallback, no CUDA needed)
+      * N>0 → partial offload (tune for your VRAM budget)
+
+    The default is set automatically by CUDA_AVAILABLE; override via
+    the ``LLAMA_N_GPU_LAYERS`` environment variable.
+    """
+
+    def __init__(
+        self,
+        model_path: str = MODEL_PATH,
+        n_ctx: int = LLAMA_N_CTX,
+        n_threads: int = LLAMA_N_THREADS,
+        n_gpu_layers: int = LLAMA_N_GPU_LAYERS,
+    ):
         if not Path(model_path).exists():
             raise FileNotFoundError(f"Model not found at {model_path}")
-        logger.info("Loading local LLM model from %s", model_path)
-        self.model = Llama(model_path=str(model_path), n_ctx=n_ctx, n_threads=n_threads, n_batch=2048)
+        _device_label = f"GPU (n_gpu_layers={n_gpu_layers})" if n_gpu_layers != 0 else "CPU"
+        logger.info("Loading local LLM model from %s  [device=%s]", model_path, _device_label)
+        if n_gpu_layers != 0 and not CUDA_AVAILABLE:
+            logger.warning(
+                "n_gpu_layers=%d requested but CUDA not detected — falling back to CPU (n_gpu_layers=0). "
+                "Install a CUDA build of llama-cpp-python to enable GPU inference.",
+                n_gpu_layers,
+            )
+            n_gpu_layers = 0
+        self.model = Llama(
+            model_path=str(model_path),
+            n_ctx=n_ctx,
+            n_threads=n_threads,
+            n_batch=2048,
+            n_gpu_layers=n_gpu_layers,
+        )
 
     def generate(self, prompt: str, max_tokens: int = 4096, stop: Optional[List[str]] = None) -> str:
         resp = self.model(

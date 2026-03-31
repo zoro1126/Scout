@@ -28,18 +28,43 @@ An unblockable, dynamic web crawler tightly integrated with a fully local Retrie
 ## ⚙️ Installation
 
 1. **Clone the repository.**
-2. **Make the installation script executable and run it.**
-   This script handles creating a virtual environment, installing dependencies, configuring Playwright browser binaries, and downloading the quantized Qwen 3B model (~2.4 GB).
-   
+
+2. **Run the setup script for your OS.**  
+   The script creates a virtual environment, installs all dependencies, configures Playwright browser binaries, and downloads the quantized Qwen2.5-3B model (~2.4 GB). GPU/CUDA is detected automatically on both platforms.
+
+   ### 🐧 Linux / macOS
+
    ```bash
    chmod +x install_deps_and_models.sh
    ./install_deps_and_models.sh
    ```
 
+   ### 🪟 Windows 10 / 11 (PowerShell)
+
+   > **Prerequisite:** Python 3.10+ must be installed and on your PATH.  
+   > Download it from [python.org](https://www.python.org/downloads/) and check **"Add python.exe to PATH"** during installation.
+
+   Open **PowerShell** in the project root and run:
+
+   ```powershell
+   # Allow local scripts to run (only needed once per machine)
+   Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+
+   .\install_deps_and_models.ps1
+   ```
+
+   The script uses `curl.exe` (built into Windows 10 1803+) for fast, resumable model downloads and falls back to `Invoke-WebRequest` if unavailable.
+
 3. **Activate the Virtual Environment.**
-   
+
+   **Linux / macOS:**
    ```bash
    source .venv/bin/activate
+   ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
    ```
 
 ---

@@ -7,20 +7,29 @@ echo "========================================"
 echo "    ScrappyAI Setup & Installation"
 echo "========================================"
 
-echo "[1/4] Creating and activating virtual environment..."
+echo "[1/5] Creating and activating virtual environment..."
 python3 -m venv .venv
 source .venv/bin/activate
 
-echo "[2/4] Installing Python dependencies..."
+echo "[2/5] Installing Python dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-echo "[3/4] Installing browser binaries for Playwright..."
+echo "[3/5] Detecting GPU / CUDA support..."
+if command -v nvidia-smi &> /dev/null && nvidia-smi -L 2>/dev/null | grep -q "GPU"; then
+    echo "  [GPU] NVIDIA GPU detected — rebuilding llama-cpp-python with CUDA support..."
+    CMAKE_ARGS="-DGGML_CUDA=ON" pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir
+    echo "  [GPU] llama-cpp-python rebuilt with CUDA. Inference will run on GPU automatically."
+else
+    echo "  [CPU] No NVIDIA GPU detected — using CPU-only llama-cpp-python (already installed)."
+fi
+
+echo "[4/5] Installing browser binaries for Playwright..."
 # Playwright is used for dynamic rendering of JS-heavy sites
 playwright install chromium
 
-echo "[4/4] Setting up models directory & downloading LLM..."
-mkdir backend/models
+echo "[5/5] Setting up models directory & downloading LLM..."
+mkdir -p backend/models
 
 MODEL_URL="https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
 MODEL_PATH="backend/models/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
