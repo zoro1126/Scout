@@ -2,3 +2,4 @@ models/
 .venv/
 *.jsonl
 __pycache__/
+wget-log
