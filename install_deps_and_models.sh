@@ -20,10 +20,10 @@ echo "[3/4] Installing browser binaries for Playwright..."
 playwright install chromium
 
 echo "[4/4] Setting up models directory & downloading LLM..."
-mkdir -p models
+mkdir backend/models
 
-MODEL_URL="https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF?show_file_info=Qwen2.5-3B-Instruct-Q4_K_M.gguf"
-MODEL_PATH="models/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+MODEL_URL="https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+MODEL_PATH="backend/models/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
 
 if [ -f "$MODEL_PATH" ]; then
     echo "Model already exists at $MODEL_PATH. Skipping download."

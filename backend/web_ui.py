@@ -23,10 +23,10 @@ async def init_backend(app):
 
 async def handle_index(request):
     try:
-        with open("index.html", "r", encoding="utf-8") as f:
+        with open("frontend/index.html", "r", encoding="utf-8") as f:
             return web.Response(text=f.read(), content_type="text/html")
     except Exception as e:
-        return web.Response(text=f"Error loading index.html: {e}", status=500)
+        return web.Response(text=f"Error loading frontend/index.html: {e}", status=500)
 
 async def handle_chat(request):
     global engine
