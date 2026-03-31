@@ -50,7 +50,7 @@ An unblockable, dynamic web crawler tightly integrated with a fully local Retrie
 The easiest way to use the application is through the fully integrated web interface.
 
 ```bash
-python web_ui.py
+python backend/web_ui.py
 ```
 
 Then, open your browser and navigate to `http://127.0.0.1:8080`. From there you can enter a URL to scrape and index, and subsequently chat with the indexed knowledge. 
@@ -59,7 +59,7 @@ Then, open your browser and navigate to `http://127.0.0.1:8080`. From there you 
 You can also run the modular orchestrator from the command line:
 
 ```bash
-python main.py
+python bckend/main.py
 ```
 This will prompt you for a URL to crawl, run the indexing process, and open an interactive terminal REPL loop to ask questions.
 
