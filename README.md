@@ -1,4 +1,4 @@
-# ScrappyAI 🕷️🔗🤖
+# Scout: Scout Crawls Online URLs for Transformers 🕷️🔗🤖
 
 An unblockable, dynamic web crawler tightly integrated with a fully local Retrieval-Augmented Generation (RAG) pipeline and a beautiful web-based UI. 
 
